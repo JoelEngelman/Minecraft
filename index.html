@@ -1,32 +1,47 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Minecraft — Joel Engelman</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minecraft</title>
 <style>
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#75b9ed;font-family:Arial,sans-serif;user-select:none}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}#hud{position:fixed;inset:0;pointer-events:none;color:white;text-shadow:2px 2px #222}#cross{position:absolute;left:50%;top:50%;font-size:28px;transform:translate(-50%,-50%);font-weight:bold}#hotbar{position:absolute;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:4px;padding:5px;background:#222b;border:3px solid #111;pointer-events:auto}.slot{width:62px;height:62px;background:#555c;border:3px solid #888;position:relative;display:grid;place-items:center;font-size:27px}.slot.sel{border-color:#fff;background:#777}.num{position:absolute;top:2px;left:4px;font-size:12px}.count{position:absolute;right:4px;bottom:2px;font-size:13px}#help{position:absolute;top:15px;left:15px;background:#0008;padding:10px 13px;border-radius:5px;font-size:14px;line-height:1.55}#status{position:absolute;top:15px;right:15px;background:#0008;padding:9px 12px;border-radius:5px;font-size:13px}.blockIcon{width:32px;height:32px;border:2px solid #222;box-shadow:inset 4px 4px #ffffff22,inset -4px -4px #0003}
-</style></head>
-<body><canvas id="game"></canvas><div id="hud"><div id="help"><b>MINECRAFT</b><br>WASD / arrows — move<br>Mouse — look · Click — mine<br>Right click — place · 1–6 — select<br>Space — jump · R — respawn</div><div id="status"></div><div id="cross">+</div><div id="hotbar"></div></div>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#87ceeb;font-family:Arial,sans-serif}canvas{display:block;width:100%;height:100%;image-rendering:pixelated}#ui{position:fixed;inset:0;pointer-events:none;color:#fff;text-shadow:2px 2px #000}#cross{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:28px}#help{position:absolute;left:14px;top:14px;padding:10px 12px;background:#0009;border-radius:6px;font-size:13px;line-height:1.5}.hotbar{position:absolute;bottom:18px;left:50%;transform:translateX(-50%);display:flex;gap:3px;padding:4px;background:#222c;border:3px solid #111;pointer-events:auto}.slot{width:58px;height:58px;background:#555;border:3px solid #777;position:relative;display:grid;place-items:center;cursor:pointer}.slot.selected{border-color:#fff;background:#777}.icon{width:30px;height:30px;border:2px solid #222}.num,.count{position:absolute;font-size:12px}.num{left:4px;top:2px}.count{right:4px;bottom:2px}#status{position:absolute;right:14px;top:14px;padding:8px 10px;background:#0009;border-radius:6px;font-size:12px}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui"><div id="help"><b>MINECRAFT</b><br>W / S or ↑ / ↓ — move<br>Space — jump<br>Left click — mine<br>Right click — place<br>1–6 — choose block<br>R — respawn</div><div id="status"></div><div id="cross">+</div><div id="hotbar" class="hotbar"></div></div>
 <script>
-const c=document.querySelector('canvas'),x=c.getContext('2d');let W,H,dpr;function resize(){dpr=devicePixelRatio||1;W=innerWidth;H=innerHeight;c.width=W*dpr;c.height=H*dpr;x.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
-const TYPES=[null,{name:'Grass',col:'#65a83c',top:'#78bd45'},{name:'Dirt',col:'#8a5a32'},{name:'Stone',col:'#777'},{name:'Wood',col:'#79502f'},{name:'Leaves',col:'#3e8b38'},{name:'Sand',col:'#d7bd73'}];
-const keys={};addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(/^\d$/.test(e.key)&&+e.key>=1&&+e.key<=6){selected=+e.key-1;drawBar()}if(e.key.toLowerCase()==='r')respawn()});addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
-let seed=Date.now(),selected=0,inv=[24,18,40,18,28,16];const size=90,world=[];function rand(n){let v=Math.sin(n*12.9898+seed*.001)*43758.5453;return v-Math.floor(v)}function height(z){return Math.max(6,Math.min(18,Math.floor(10+Math.sin(z*.16)*3+Math.sin(z*.047)*4+rand(z)*3)))}
-for(let z=0;z<size;z++){world[z]=[];let h=height(z);for(let y=0;y<25;y++)world[z][y]=y>h?0:y===h?1:y>h-4?2:3}
-// Trees grow above the surface and never replace the grass block.
-for(let z=4;z<size-4;z+=7){let h=height(z);if(rand(z*2)>.42)continue;for(let yy=1;yy<=4;yy++)if(h+yy<25)world[z][h+yy]=4;for(let dz=-2;dz<=2;dz++)for(let yy=3;yy<=5;yy++){let zz=z+dz,y=h+yy;if(zz>=0&&zz<size&&y>=0&&y<25&&world[zz][y]===0&&rand(zz*8+y)>.18)world[zz][y]=5}}
-function findSpawn(){// Find a clear grass-top column, not a tree/leaf column.
-for(let z=8;z<size-8;z++){let h=height(z);if(world[z][h]===1&&world[z][h+1]===0&&world[z][h+2]===0)return{z:z+.5,y:h};}
-let z=45,h=height(z);return{z:z+.5,y:h};}
-let spawn=findSpawn(),p={z:spawn.z,y:spawn.y,vy:0,onGround:true},cam={z:p.z,y:p.y};
-function respawn(){spawn=findSpawn();p.z=spawn.z;p.y=spawn.y;p.vy=0;p.onGround=true;cam.z=p.z;cam.y=p.y}
-function blockAt(z,y){if(z<0||z>=size||y<0||y>=25)return 0;return world[z][y]||0}function solid(z,y){return blockAt(z,y)!==0}
-function groundAt(z){let col=Math.max(0,Math.min(size-1,Math.floor(z)));for(let y=24;y>=0;y--)if(solid(col,y))return y;return -1}
-function move(dt){let dz=0;if(keys.w||keys.arrowup)dz-=1;if(keys.s||keys.arrowdown)dz+=1;let speed=5,nz=p.z+dz*speed*dt;if(nz>=.3&&nz<size-.3){let nextCol=Math.floor(nz);let g=groundAt(nextCol);if(g>=0&&p.y<=g+1.05)p.z=nz}
-let g=groundAt(p.z);p.vy-=22*dt;p.y+=p.vy*dt;if(g>=0&&p.y>=g){p.y=g;p.vy=0;p.onGround=true}else p.onGround=false;if((keys[' ']||keys.space)&&p.onGround){p.vy=9;p.onGround=false}if(p.y>27||g<0)respawn();cam.z+=(p.z-cam.z)*.15;cam.y+=(p.y-cam.y)*.15}
-function screenY(y){return H/2-(y-cam.y)*48}function screenX(z){return W/2+(z-cam.z)*48}function drawBlock(z,y,t){let sx=screenX(z),sy=screenY(y);if(sx<-55||sx>W+55||sy<-60||sy>H+60)return;x.fillStyle=TYPES[t].col;x.fillRect(sx,sy,48,48);x.fillStyle=t===1?TYPES[t].top:TYPES[t].col;x.fillRect(sx,sy,48,8);x.fillStyle='#0002';x.fillRect(sx+44,sy,4,48);x.fillRect(sx,sy+44,48,4);x.strokeStyle='#0004';x.strokeRect(sx+.5,sy+.5,47,47)}
-function draw(){let grd=x.createLinearGradient(0,0,0,H);grd.addColorStop(0,'#64aee5');grd.addColorStop(.7,'#b8e0f4');grd.addColorStop(1,'#d7c890');x.fillStyle=grd;x.fillRect(0,0,W,H);let start=Math.floor(cam.z-W/96)-2,end=Math.ceil(cam.z+W/96)+2;for(let z=start;z<=end;z++)if(z>=0&&z<size)for(let y=24;y>=0;y--)if(world[z][y])drawBlock(z,y,world[z][y]);let sun=(Math.sin(Date.now()/25000)+1)/2;x.fillStyle=`rgba(255,235,150,${.15+sun*.25})`;x.beginPath();x.arc(W*.82,H*.18,45,0,7);x.fill();document.querySelector('#status').textContent=`Position ${Math.floor(p.z)}, ${Math.floor(p.y)} • surface ${groundAt(p.z)}`}
-let last=performance.now();function loop(now){let dt=Math.min(.033,(now-last)/1000);last=now;move(dt);draw();requestAnimationFrame(loop)}requestAnimationFrame(loop);
-function target(){let z=Math.round(cam.z+(mouse.x-W/2)/48);let y=Math.floor(cam.y-(mouse.y-H/2)/48);return{z,y}}let mouse={x:W/2,y:H/2};addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});addEventListener('contextmenu',e=>e.preventDefault());c.addEventListener('mousedown',e=>{let q=target();if(q.z<0||q.z>=size||q.y<0||q.y>=25)return;if(e.button===0&&world[q.z][q.y]){let t=world[q.z][q.y];world[q.z][q.y]=0;inv[t-1]++}else if(e.button===2&&world[q.z][q.y]===0&&inv[selected]>0){world[q.z][q.y]=selected+1;inv[selected]--}drawBar()});
-function drawBar(){let b=document.querySelector('#hotbar');b.innerHTML='';for(let i=0;i<6;i++){let s=document.createElement('div');s.className='slot'+(i===selected?' sel':'');s.innerHTML=`<span class="num">${i+1}</span><div class="blockIcon" style="background:${TYPES[i+1].col}"></div><span class="count">${inv[i]}</span>`;s.onclick=()=>{selected=i;drawBar()};b.appendChild(s)}}drawBar();
-</script></body></html>
+'use strict';
+const canvas=document.getElementById('game'),ctx=canvas.getContext('2d');
+let W=innerWidth,H=innerHeight,dpr=1;
+function resize(){dpr=Math.min(devicePixelRatio||1,2);W=innerWidth;H=innerHeight;canvas.width=W*dpr;canvas.height=H*dpr;canvas.style.width=W+'px';canvas.style.height=H+'px';ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+const BLOCKS=[null,{name:'Grass',color:'#5da63a',top:'#78bd45'},{name:'Dirt',color:'#87562f'},{name:'Stone',color:'#777'},{name:'Wood',color:'#79502f'},{name:'Leaves',color:'#3b8736'},{name:'Sand',color:'#d7bd73'}];
+const WIDTH=160,DEPTH=32,world=Array.from({length:WIDTH},()=>Array(DEPTH).fill(0));
+let seed=Math.random()*99999;
+function noise(n){const v=Math.sin(n*12.9898+seed)*43758.5453;return v-Math.floor(v)}
+function surface(z){return Math.max(5,Math.min(19,Math.floor(10+Math.sin(z*.13)*3+Math.sin(z*.041)*4+noise(z)*2)))}
+for(let z=0;z<WIDTH;z++){const h=surface(z);for(let y=0;y<=h;y++)world[z][y]=y===h?1:y>h-4?2:3}
+for(let z=6;z<WIDTH-6;z++){if(noise(z*9)>.84){const h=surface(z);for(let y=1;y<=4;y++)world[z][h+y]=4;for(let dz=-2;dz<=2;dz++)for(let y=3;y<=5;y++){const zz=z+dz,yy=h+y;if(zz>=0&&zz<WIDTH&&yy<DEPTH&&world[zz][yy]===0)world[zz][yy]=5}}}
+function get(z,y){if(z<0||z>=WIDTH||y<0||y>=DEPTH)return 0;return world[z][y]}
+function top(z){for(let y=DEPTH-1;y>=0;y--)if(get(z,y))return y;return 0}
+function findSpawn(){for(let z=10;z<WIDTH-10;z++){const y=surface(z);if(get(z,y)===1&&!get(z,y+1)&&!get(z,y+2))return{z:z+.5,y:y+1}}return{z:20.5,y:surface(20)+1}}
+let spawn=findSpawn(),player={z:spawn.z,y:spawn.y,vy:0,onGround:false},camera={z:player.z,y:player.y};
+const keys={};let selected=0;const inventory=[30,30,40,20,30,30];
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(e.code==='Space')keys.space=true;if(/^[1-6]$/.test(e.key)){selected=+e.key-1;renderHotbar()}if(e.key.toLowerCase()==='r')respawn()});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.code==='Space')keys.space=false});
+function respawn(){spawn=findSpawn();player.z=spawn.z;player.y=spawn.y;player.vy=0;player.onGround=false;camera.z=player.z;camera.y=player.y}
+function move(dt){let dz=0;if(keys.w||keys.arrowup)dz-=1;if(keys.s||keys.arrowdown)dz+=1;const speed=5;const nz=player.z+dz*speed*dt;if(nz>.5&&nz<WIDTH-.5){const g=top(Math.floor(nz));if(player.y>=g+0.65)player.z=nz}
+const g=top(Math.floor(player.z));player.vy-=24*dt;player.y+=player.vy*dt;if(player.y<=g+1){player.y=g+1;player.vy=0;player.onGround=true}else player.onGround=false;if(keys.space&&player.onGround){player.vy=9;player.onGround=false}if(player.y<-5||player.y>DEPTH+5)respawn();camera.z+=(player.z-camera.z)*Math.min(1,dt*12);camera.y+=(player.y-camera.y)*Math.min(1,dt*12)}
+function sx(z){return W/2+(z-camera.z)*48}function sy(y){return H/2-(y-camera.y)*48}
+function drawBlock(z,y,type){const X=sx(z),Y=sy(y);if(X<-50||X>W+50||Y<-50||Y>H+50)return;ctx.fillStyle=BLOCKS[type].color;ctx.fillRect(X,Y,48,48);if(type===1){ctx.fillStyle=BLOCKS[1].top;ctx.fillRect(X,Y,48,8)}ctx.fillStyle='rgba(0,0,0,.12)';ctx.fillRect(X+43,Y,5,48);ctx.fillRect(X,Y+43,48,5);ctx.strokeStyle='rgba(0,0,0,.18)';ctx.strokeRect(X+.5,Y+.5,47,47)}
+function draw(){const sky=ctx.createLinearGradient(0,0,0,H);sky.addColorStop(0,'#55a9e6');sky.addColorStop(.7,'#bde3f4');sky.addColorStop(1,'#d8c48b');ctx.fillStyle=sky;ctx.fillRect(0,0,W,H);const range=Math.ceil(W/48/2)+3;for(let z=Math.floor(camera.z)-range;z<=Math.floor(camera.z)+range;z++){if(z<0||z>=WIDTH)continue;for(let y=DEPTH-1;y>=0;y--){const b=world[z][y];if(b)drawBlock(z,y,b)}}ctx.fillStyle='#fff2a0';ctx.beginPath();ctx.arc(W*.82,H*.16,38,0,Math.PI*2);ctx.fill();document.getElementById('status').textContent='X '+Math.floor(player.z)+'  Y '+Math.floor(player.y)}
+function renderHotbar(){const bar=document.getElementById('hotbar');bar.innerHTML='';for(let i=0;i<6;i++){const s=document.createElement('div');s.className='slot'+(i===selected?' selected':'');s.innerHTML='<span class="num">'+(i+1)+'</span><div class="icon" style="background:'+BLOCKS[i+1].color+'"></div><span class="count">'+inventory[i]+'</span>';s.onclick=()=>{selected=i;renderHotbar()};bar.appendChild(s)}}
+const mouse={x:W/2,y:H/2};addEventListener('mousemove',e=>{mouse.x=e.clientX;mouse.y=e.clientY});addEventListener('contextmenu',e=>e.preventDefault());
+function target(){const z=Math.round(camera.z+(mouse.x-W/2)/48);const y=Math.floor(camera.y-(mouse.y-H/2)/48);return{z,y}}
+canvas.addEventListener('mousedown',e=>{const q=target();if(q.z<0||q.z>=WIDTH||q.y<0||q.y>=DEPTH)return;if(e.button===0){const b=get(q.z,q.y);if(b){world[q.z][q.y]=0;inventory[b-1]++;renderHotbar()}}else if(e.button===2){if(get(q.z,q.y)===0&&inventory[selected]>0){world[q.z][q.y]=selected+1;inventory[selected]--;renderHotbar()}}});
+let last=performance.now();function loop(now){const dt=Math.min(.033,(now-last)/1000);last=now;move(dt);draw();requestAnimationFrame(loop)}renderHotbar();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
